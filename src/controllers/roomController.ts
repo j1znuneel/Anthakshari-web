@@ -1,8 +1,67 @@
 import { prisma } from "../utils/prisma";
 import { Request, Response } from "express";
 
-export const createRoom = async (req: Request, res: Response) => {
+export const createRoom = async (req: Request, res: Response): Promise<void> => {
+  const { name } = req.body;
+
+  if (!name) {
+    res.status(400).json({ error: "Name is required to create room." });
+    return;
+  }
+
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-  const room = await prisma.room.create({ data: { code } });
+
+  const room = await prisma.room.create({
+    data: {
+      code,
+      players: {
+        create: { name },
+      },
+    },
+    include: { players: true },
+  });
+
   res.status(201).json(room);
+};
+
+export const joinRoom = async (req: Request, res: Response): Promise<void> => {
+  const { code, name } = req.body;
+
+  if (!code || !name) {
+    res.status(400).json({ error: "Room code and name are required." });
+    return;
+  }
+
+  const room = await prisma.room.findUnique({
+    where: { code },
+    include: { players: true }, 
+  });
+
+  if (!room) {
+    res.status(404).json({ error: "Room not found." });
+    return;
+  }
+
+  const existingPlayer = room.players.find(
+    (player) => player.name.toLowerCase() === name.toLowerCase()
+  );
+
+  if (existingPlayer) {
+    res.status(409).json({ error: "Player name already exists in this room." });
+    return;
+  }
+
+  await prisma.player.create({
+    data: {
+      name,
+      roomId: room.id,
+    },
+  });
+
+  const updatedRoom = await prisma.room.findUnique({
+    where: { code },
+    include: { players: true },
+  });
+
+  res.status(201).json({ players: updatedRoom?.players });
 };

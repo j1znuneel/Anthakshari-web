@@ -1,8 +1,9 @@
 import express from "express";
-import { createRoom } from "../controllers/roomController";
+import { createRoom, joinRoom } from "../controllers/roomController";
 
 const router = express.Router();
 
 router.post("/room", createRoom);
+router.post("/room/join", joinRoom);
 
 export default router;
