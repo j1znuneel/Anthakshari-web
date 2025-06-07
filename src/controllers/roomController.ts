@@ -11,18 +11,33 @@ export const createRoom = async (req: Request, res: Response): Promise<void> => 
 
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
+  // Step 1: Create the room without players first
   const room = await prisma.room.create({
     data: {
       code,
       turnTime,
-      players: {
-        create: { name },
-      },
+      started: false,
+    },
+  });
+
+  // Step 2: Create the player (creator)
+  const player = await prisma.player.create({
+    data: {
+      name,
+      roomId: room.id,
+    },
+  });
+
+  // Step 3: Update the room's currentTurn to this player's ID
+  const updatedRoom = await prisma.room.update({
+    where: { id: room.id },
+    data: {
+      currentTurn: player.id,
     },
     include: { players: true },
   });
 
-  res.status(201).json(room);
+  res.status(201).json(updatedRoom);
 };
 
 export const joinRoom = async (req: Request, res: Response): Promise<void> => {
@@ -106,5 +121,73 @@ export const startRoom = async (req: Request, res: Response): Promise<void> => {
     message: "Game started",
     currentTurn: firstPlayer,
     players: updatedRoom.players,
+  });
+};
+
+
+export const submitSong = async (req: Request, res: Response): Promise<void> => {
+  const { code, playerId, letter } = req.body;
+
+  if (!code || !playerId || !letter) {
+    res.status(400).json({ error: "code, playerId and letter are required." });
+    return;
+  }
+
+  const room = await prisma.room.findUnique({
+    where: { code },
+    include: { players: { orderBy: { joinedAt: "asc" } } },
+  });
+
+  if (!room) {
+    res.status(404).json({ error: "Room not found." });
+    return;
+  }
+
+  if (room.currentTurn !== playerId) {
+    res.status(403).json({ error: "It's not your turn." });
+    return;
+  }
+
+  const playerIndex = room.players.findIndex(p => p.id === playerId);
+  const nextIndex = (playerIndex + 1) % room.players.length;
+  const nextPlayer = room.players[nextIndex];
+
+  const updatedRoom = await prisma.room.update({
+    where: { code },
+    data: {
+      lastLetter: letter,
+      currentTurn: nextPlayer.id,
+    },
+    include: { players: true },
+  });
+
+  res.status(200).json({
+    message: "Turn submitted",
+    lastLetter: updatedRoom.lastLetter,
+    currentTurn: nextPlayer,
+  });
+};
+
+export const getRoom = async (req: Request, res: Response): Promise<void> => {
+  const { code } = req.params;
+
+  const room = await prisma.room.findUnique({
+    where: { code },
+    include: {
+      players: { orderBy: { joinedAt: "asc" } },
+    },
+  });
+
+  if (!room) {
+    res.status(404).json({ error: "Room not found." });
+    return;
+  }
+
+  res.status(200).json({
+    code: room.code,
+    players: room.players,
+    currentTurn: room.currentTurn,
+    lastLetter: room.lastLetter,
+    started: room.started,
   });
 };
