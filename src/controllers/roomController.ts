@@ -1,43 +1,47 @@
 import { prisma } from "../utils/prisma";
 import { Request, Response } from "express";
 
-export const createRoom = async (req: Request, res: Response): Promise<void> => {
-  const { name, turnTime = 30 } = req.body;
+export const createRoom = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    console.log("Received createRoom request");
+    console.log("Request body:", req.body);
 
-  if (!name) {
-    res.status(400).json({ error: "Name is required to create room." });
-    return;
+    const { name, turnTime = 30 } = req.body;
+
+    if (!name) {
+      console.warn("Validation failed: Name is missing");
+      res.status(400).json({ error: "Name is required to create room." });
+      return;
+    }
+
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    console.log("Generated room code:", code);
+
+    const room = await prisma.room.create({
+      data: { code, turnTime, started: false },
+    });
+    console.log("Room created:", room);
+
+    const player = await prisma.player.create({
+      data: { name, roomId: room.id },
+    });
+    console.log("Player created:", player);
+
+    const updatedRoom = await prisma.room.update({
+      where: { id: room.id },
+      data: { currentTurn: player.id },
+      include: { players: true },
+    });
+    console.log("Room updated with currentTurn:", updatedRoom);
+
+    res.status(201).json(updatedRoom);
+  } catch (err: any) {
+    console.error("CreateRoom error:", err);
+    res.status(500).json({ error: "Something went wrong" });
   }
-
-  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-  // Step 1: Create the room without players first
-  const room = await prisma.room.create({
-    data: {
-      code,
-      turnTime,
-      started: false,
-    },
-  });
-
-  // Step 2: Create the player (creator)
-  const player = await prisma.player.create({
-    data: {
-      name,
-      roomId: room.id,
-    },
-  });
-
-  // Step 3: Update the room's currentTurn to this player's ID
-  const updatedRoom = await prisma.room.update({
-    where: { id: room.id },
-    data: {
-      currentTurn: player.id,
-    },
-    include: { players: true },
-  });
-
-  res.status(201).json(updatedRoom);
 };
 
 export const joinRoom = async (req: Request, res: Response): Promise<void> => {
@@ -50,7 +54,7 @@ export const joinRoom = async (req: Request, res: Response): Promise<void> => {
 
   const room = await prisma.room.findUnique({
     where: { code },
-    include: { players: true }, 
+    include: { players: true },
   });
 
   if (!room) {
@@ -100,7 +104,9 @@ export const startRoom = async (req: Request, res: Response): Promise<void> => {
   }
 
   if (room.players.length < 2) {
-    res.status(400).json({ error: "At least 2 players are required to start the game." });
+    res
+      .status(400)
+      .json({ error: "At least 2 players are required to start the game." });
     return;
   }
 
@@ -124,8 +130,10 @@ export const startRoom = async (req: Request, res: Response): Promise<void> => {
   });
 };
 
-
-export const submitSong = async (req: Request, res: Response): Promise<void> => {
+export const submitSong = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { code, playerId, letter } = req.body;
 
   if (!code || !playerId || !letter) {
@@ -148,7 +156,7 @@ export const submitSong = async (req: Request, res: Response): Promise<void> => 
     return;
   }
 
-  const playerIndex = room.players.findIndex(p => p.id === playerId);
+  const playerIndex = room.players.findIndex((p) => p.id === playerId);
   const nextIndex = (playerIndex + 1) % room.players.length;
   const nextPlayer = room.players[nextIndex];
 
@@ -191,3 +199,4 @@ export const getRoom = async (req: Request, res: Response): Promise<void> => {
     started: room.started,
   });
 };
+

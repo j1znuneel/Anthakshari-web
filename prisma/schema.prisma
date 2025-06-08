@@ -9,21 +9,20 @@ datasource db {
 }
 
 model Room {
-  id           String    @id @default(cuid())
-  code         String    @unique
-  createdAt    DateTime  @default(now())
-  started      Boolean   @default(false)       // Marks if game has started
-  currentTurn  String?                          // Player ID whose turn it is
-  lastLetter   String?                          // Next song must start with this letter
-  turnTime     Int       @default(30)           // Seconds per turn (can be set when room is created)
-  players      Player[]
+  id          String   @id @default(cuid())
+  code        String   @unique
+  createdAt   DateTime @default(now())
+  started     Boolean  @default(false) // Marks if game has started
+  currentTurn String? // Player ID whose turn it is
+  lastLetter  String? // Next song must start with this letter
+  turnTime    Int      @default(30) // Seconds per turn (can be set when room is created)
+  players     Player[]
 }
 
-
 model Player {
-  id       String @id @default(cuid())
+  id       String   @id @default(cuid())
   name     String
   roomId   String
-  room     Room   @relation(fields: [roomId], references: [id])
+  room     Room     @relation(fields: [roomId], references: [id])
   joinedAt DateTime @default(now())
 }
