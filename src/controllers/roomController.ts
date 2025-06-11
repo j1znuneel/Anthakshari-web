@@ -37,7 +37,10 @@ export const createRoom = async (
     });
     console.log("Room updated with currentTurn:", updatedRoom);
 
-    res.status(201).json(updatedRoom);
+    res.status(201).json({
+      code: updatedRoom.code,
+      playerId: player.id,
+    });
   } catch (err: any) {
     console.error("CreateRoom error:", err);
     res.status(500).json({ error: "Something went wrong" });
@@ -71,7 +74,7 @@ export const joinRoom = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  await prisma.player.create({
+  const player=await prisma.player.create({
     data: {
       name,
       roomId: room.id,
@@ -83,7 +86,7 @@ export const joinRoom = async (req: Request, res: Response): Promise<void> => {
     include: { players: true },
   });
 
-  res.status(201).json({ players: updatedRoom?.players });
+  res.status(201).json({ players: updatedRoom?.players ,code:room.code,playerId:player.id});
 };
 export const startRoom = async (req: Request, res: Response): Promise<void> => {
   const { code } = req.body;
@@ -199,4 +202,3 @@ export const getRoom = async (req: Request, res: Response): Promise<void> => {
     started: room.started,
   });
 };
-
