@@ -14,7 +14,7 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       return;
     }
 
-    socket.emit("room-data", room);
+    io.to(roomCode).emit("room-data", room);
   });
 
   socket.on(
