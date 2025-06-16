@@ -17,8 +17,34 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
     io.to(roomCode).emit("room-data", room);
   });
 
+  // Handle song submission and streaming
   socket.on(
     "submit-song",
+    async ({ code, playerId, audioData, playerName }, callback: () => void) => {
+      const room = await prisma.room.findUnique({
+        where: { code },
+        include: { players: { orderBy: { joinedAt: "asc" } } },
+      });
+
+      if (!room || room.currentTurn !== playerId) {
+        socket.emit("error", "Invalid turn or room");
+        return;
+      }
+
+      // Broadcast the song to all players in the room
+      io.to(code).emit("song-data", {
+        audioData,
+        playerId,
+        playerName
+      });
+
+      if (callback) callback();
+    }
+  );
+
+  // Handle letter submission and turn change
+  socket.on(
+    "submit-letter",
     async ({ code, playerId, letter }, callback: () => void) => {
       const room = await prisma.room.findUnique({
         where: { code },
@@ -51,4 +77,4 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
   });
-}
+} 
